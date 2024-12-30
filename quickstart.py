@@ -1,4 +1,3 @@
-import datetime
 import os.path
 
 from google.auth.transport.requests import Request
@@ -7,8 +6,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from calendar_services import *
+
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
 def main():
@@ -36,34 +37,38 @@ def main():
 
     try:
         service = build("calendar", "v3", credentials=creds)
-
-        # Call the Calendar API
-        now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' indicates UTC time
-        print("Getting the upcoming 10 events")
-        events_result = (
-            service.events()
-            .list(
-                calendarId="primary",
-                timeMin=now,
-                maxResults=10,
-                singleEvents=True,
-                orderBy="startTime",
-            )
-            .execute()
-        )
-        events = events_result.get("items", [])
-
-        if not events:
-            print("No upcoming events found.")
-            return
-
-        # Prints the start and name of the next 10 events
-        for event in events:
-            start = event["start"].get("dateTime", event["start"].get("date"))
-            print(start, event["summary"])
-
     except HttpError as error:
         print(f"An error occurred: {error}")
+
+    # call some of the services
+    # get_all_calendar_names(service)
+    open_hours_calendar = get_calendar_id_by_name(
+        service, "Open to Work Hours")
+    if (open_hours_calendar == "None"):
+        # create Open to Work Hours calendar
+        print("Creating Open to Work Hours calendar...")
+        create_calendar(service, "Open to Work Hours")
+        open_hours_calendar = get_calendar_id_by_name(
+            service, "Open to Work Hours")
+
+    client_scheduled_calendar = get_calendar_id_by_name(
+        service, "Client Scheduled")
+    if (client_scheduled_calendar == "None"):
+        # create Client Scheduled calendar
+        print("Creating Client Scheduled calendar...")
+        create_calendar(service, "Client Scheduled")
+        open_hours_calendar = get_calendar_id_by_name(
+            service, "Client Scheduled")
+
+    # print(f"Open to Work Hours calendar:\n{open_hours_calendar}")
+    # print(f"Client Scheduled calendar:\n{client_scheduled_calendar}")
+
+    # client_event = create_an_event(summary="Charlie Brown's appt", email="c-brown02@mail.com", start="2024-12-31T11:30:00",
+    #                                end="2024-12-31T12:30:00", description='career counselling', location='your office')
+    # add_event_to_calendar(service, client_event, client_scheduled_calendar)
+    work_event = create_an_event(summary="Open to work", email="c-brown02@mail.com", start="2024-12-29T11:30:00",
+                                 end="2024-12-29T12:30:00", recurrence=['RRULE:FREQ=DAILY;COUNT=6', 'EXDATE;TZID=America/Chicago:20250102T113000', 'EXDATE;TZID=America/Chicago:20241231T113000'])
+    add_event_to_calendar(service, work_event, open_hours_calendar)
 
 
 if __name__ == "__main__":
